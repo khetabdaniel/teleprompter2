@@ -1,0 +1,399 @@
+<html><head><base href="./">
+<title>تطبيق Teleprompter للهواتف</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#00ff00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192x192.png">
+<style>
+body {
+    margin: 0;
+    padding: 0;
+    background: #111;
+    color: #fff;
+    font-family: 'Arial', sans-serif;
+    direction: rtl;
+}
+
+.container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 10px;
+    text-align: center;
+}
+
+#controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.9);
+    padding: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    box-shadow: 0 -2px 10px rgba(0,255,0,0.2);
+}
+
+#promptText {
+    width: 100%;
+    height: 80px;
+    background: #222;
+    color: #fff;
+    border: 1px solid #00ff00;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    font-size: 16px;
+    direction: rtl;
+    transition: border-color 0.3s;
+    resize: vertical;
+}
+
+#promptText:focus {
+    outline: none;
+    border-color: #00ff00;
+    box-shadow: 0 0 10px rgba(0,255,0,0.2);
+}
+
+#display {
+    height: 50vh;
+    overflow: hidden;
+    position: relative;
+    background: rgba(0, 0, 0, 1);
+    padding: 20px;
+    margin-bottom: 120px;
+    border-radius: 10px;
+    box-shadow: inset 0 0 20px rgba(0,255,0,0.1);
+    transition: background-color 0.3s ease;
+}
+
+#scrollingText {
+    color: #00ff00;
+    line-height: 1.6;
+    text-align: right;
+    padding: 20px;
+    transform: translateY(100%);
+    transition: transform 0.016s linear;
+    text-shadow: 0 0 5px rgba(0,255,0,0.3);
+}
+
+button {
+    background: #005522;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 100px;
+    box-shadow: 0 2px 5px rgba(0,255,0,0.2);
+}
+
+button:hover {
+    background: #007733;
+    transform: translateY(-2px);
+}
+
+button:active {
+    background: #004411;
+    transform: translateY(0);
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 8px 0;
+    flex-wrap: wrap;
+    background: rgba(0,255,0,0.05);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+input[type="range"] {
+    width: 120px;
+    height: 6px;
+    -webkit-appearance: none;
+    background: #333;
+    border-radius: 3px;
+    outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #00ff00;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(0,255,0,0.5);
+}
+
+.control-label {
+    font-size: 14px;
+    min-width: 70px;
+    color: #00ff00;
+}
+
+h1 {
+    font-size: 24px;
+    margin: 15px 0;
+    color: #00ff00;
+    text-shadow: 0 0 10px rgba(0,255,0,0.3);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.7);
+}
+
+.modal-content {
+    background-color: #222;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #00ff00;
+    border-radius: 10px;
+    width: 80%;
+    max-width: 500px;
+    position: relative;
+}
+
+.close {
+    color: #00ff00;
+    float: left;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.recording {
+    background: #ff3333 !important;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div id="display">
+        <div id="scrollingText"></div>
+    </div>
+    
+    <div id="controls">
+        <button id="settingsBtn">اعداد النص</button>
+        <button id="startBtn">تشغيل</button>
+        <button id="recordBtn">تسجيل</button>
+        <button id="resetBtn">اعادة</button>
+        <div class="control-group" style="width: 100%;">
+            <label for="transparency">الشفافية:</label>
+            <input type="range" id="transparency" min="0" max="100" value="100">
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <textarea id="promptText" placeholder="ادخل النص هنا..." dir="rtl"></textarea>
+        <div class="control-group">
+            <label for="speed">السرعة:</label>
+            <input type="range" id="speed" min="1" max="10" value="3">
+        </div>
+        <div class="control-group">
+            <label for="fontSize">حجم الخط:</label>
+            <input type="range" id="fontSize" min="20" max="100" value="40">
+        </div>
+    </div>
+</div>
+
+<script>
+// Register Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+            .then(registration => {
+                console.log('ServiceWorker registration successful');
+            })
+            .catch(err => {
+                console.log('ServiceWorker registration failed: ', err);
+            });
+    });
+}
+
+let scrollInterval;
+let isPaused = true;
+let speed = 3;
+let fontSize = 40;
+let opacity = 100;
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+
+const startBtn = document.getElementById('startBtn');
+const recordBtn = document.getElementById('recordBtn');
+const resetBtn = document.getElementById('resetBtn');
+const promptText = document.getElementById('promptText');
+const scrollingText = document.getElementById('scrollingText');
+const speedControl = document.getElementById('speed');
+const fontSizeControl = document.getElementById('fontSize');
+const transparencyControl = document.getElementById('transparency');
+
+function updateText() {
+    scrollingText.textContent = promptText.value;
+    updateStyles();
+}
+
+function updateStyles() {
+    scrollingText.style.fontSize = fontSize + 'px';
+    const display = document.getElementById('display');
+    display.style.backgroundColor = `rgba(0, 0, 0, ${opacity / 100})`;
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user" },
+            audio: true
+        });
+        
+        mediaRecorder = new MediaRecorder(stream);
+        recordedChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'teleprompter-recording.webm';
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        recordBtn.classList.add('recording');
+        recordBtn.textContent = 'ايقاف التسجيل';
+    } catch (err) {
+        console.error('Error accessing camera:', err);
+        alert('لا يمكن الوصول إلى الكاميرا. يرجى التحقق من الإذن.');
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    isRecording = false;
+    recordBtn.classList.remove('recording');
+    recordBtn.textContent = 'تسجيل';
+}
+
+function toggleRecording() {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startScroll() {
+    if (isPaused) {
+        scrollInterval = setInterval(() => {
+            const currentY = parseFloat(scrollingText.style.transform.replace('translateY(', '').replace('%)', '')) || 100;
+            if (currentY > -100) {
+                scrollingText.style.transform = `translateY(${currentY - speed * 0.1}%)`;
+            } else {
+                clearInterval(scrollInterval);
+            }
+        }, 16);
+        isPaused = false;
+        startBtn.textContent = 'ايقاف';
+    } else {
+        clearInterval(scrollInterval);
+        isPaused = true;
+        startBtn.textContent = 'تشغيل';
+    }
+}
+
+function resetScroll() {
+    isPaused = true;
+    clearInterval(scrollInterval);
+    scrollingText.style.transform = 'translateY(100%)';
+    startBtn.textContent = 'تشغيل';
+}
+
+startBtn.addEventListener('click', startScroll);
+recordBtn.addEventListener('click', toggleRecording);
+resetBtn.addEventListener('click', resetScroll);
+promptText.addEventListener('input', updateText);
+
+speedControl.addEventListener('input', (e) => {
+    speed = parseInt(e.target.value);
+});
+
+fontSizeControl.addEventListener('input', (e) => {
+    fontSize = parseInt(e.target.value);
+    updateStyles();
+});
+
+transparencyControl.addEventListener('input', (e) => {
+    opacity = parseInt(e.target.value);
+    updateStyles();
+});
+
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeBtn = document.querySelector('.close');
+
+settingsBtn.addEventListener('click', () => {
+    settingsModal.style.display = 'block';
+});
+
+closeBtn.addEventListener('click', () => {
+    settingsModal.style.display = 'none';
+});
+
+window.addEventListener('click', (event) => {
+    if (event.target == settingsModal) {
+        settingsModal.style.display = 'none';
+    }
+});
+
+// Initial styles update
+updateStyles();
+</script>
+</body>
+</html>

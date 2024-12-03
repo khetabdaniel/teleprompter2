@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Icons</title>
+</head>
+<body>
+    <canvas id="canvas192" width="192" height="192"></canvas>
+    <canvas id="canvas512" width="512" height="512"></canvas>
+    <script>
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#111111';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Teleprompter screen
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(size * 0.2, size * 0.2, size * 0.6, size * 0.6);
+            
+            // Text lines
+            ctx.fillStyle = '#111111';
+            const lineHeight = size * 0.1;
+            const startY = size * 0.3;
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(size * 0.25, startY + (i * lineHeight), size * 0.5, size * 0.05);
+            }
+            
+            // Save the image
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Create both icon sizes
+        drawIcon(document.getElementById('canvas192'), 192);
+        drawIcon(document.getElementById('canvas512'), 512);
+    </script>
+</body>
+</html>
