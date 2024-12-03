@@ -1,11 +1,4 @@
-# System Files
 .DS_Store
-Thumbs.db
-
-# IDE Files
-.idea/
-.vscode/
-
-# Temporary Files
+node_modules/
+.env
 *.log
-*.tmp
