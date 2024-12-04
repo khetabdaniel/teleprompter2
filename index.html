@@ -176,7 +176,7 @@ h1 {
     width: 80%;
     max-width: 500px;
     position: relative;
-    color: #fff;
+    direction: rtl;
 }
 
 .close {
@@ -229,44 +229,26 @@ h1 {
     animation: pulse 1s infinite;
 }
 
-.video-settings-btn {
-    background-color: #4CAF50;
-    border: none;
-    color: white;
-    padding: 10px 20px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.settings-group {
-    margin: 15px 0;
-    text-align: right;
-}
-
-.settings-group label {
-    display: block;
-    margin-bottom: 5px;
-    color: #00ff00;
-}
-
-.settings-group select {
-    width: 100%;
-    padding: 8px;
-    background: #333;
-    color: #fff;
-    border: 1px solid #00ff00;
-    border-radius: 4px;
-}
-
 @keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
+}
+
+#videoSettingsModal .control-group {
+    margin: 15px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#videoSettingsModal select {
+    background: #333;
+    color: #fff;
+    border: 1px solid #00ff00;
+    padding: 8px;
+    border-radius: 5px;
+    width: 100%;
 }
 </style>
 </head>
@@ -284,7 +266,7 @@ h1 {
     <button id="startBtn">تشغيل</button>
     <button id="recordBtn">تسجيل</button>
     <button id="resetBtn">إعادة</button>
-    <button id="videoSettingsBtn" class="video-settings-btn">خصائص الفيديو</button>
+    <button id="videoSettingsBtn">خصائص الفيديو</button>
     <button id="settingsBtn">إعدادات</button>
     <div class="control-group" style="width: 100%;">
         <label for="transparency">شفافية النص:</label>
@@ -293,6 +275,29 @@ h1 {
 </div>
 
 <div id="audioIndicator"></div>
+
+<!-- إضافة نافذة إعدادات الفيديو -->
+<div id="videoSettingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="control-group">
+            <label for="videoQuality">جودة الفيديو:</label>
+            <select id="videoQuality">
+                <option value="1080">1080p (FHD)</option>
+                <option value="720">720p (HD)</option>
+                <option value="480">480p (SD)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="frameRate">إطارات في الثانية:</label>
+            <select id="frameRate">
+                <option value="30">30 FPS</option>
+                <option value="25">25 FPS</option>
+                <option value="24">24 FPS</option>
+            </select>
+        </div>
+    </div>
+</div>
 
 <div class="modal" id="settingsModal">
     <div class="modal-content">
@@ -305,28 +310,6 @@ h1 {
         <div class="control-group">
             <label for="fontSize">حجم الخط:</label>
             <input type="range" id="fontSize" min="20" max="100" value="40">
-        </div>
-    </div>
-</div>
-
-<div id="videoSettingsModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <div class="settings-group">
-            <label for="videoQuality">جودة الفيديو:</label>
-            <select id="videoQuality">
-                <option value="1080">Full HD (1920×1080)</option>
-                <option value="720">HD (1280×720)</option>
-                <option value="480">SD (854×480)</option>
-            </select>
-        </div>
-        <div class="settings-group">
-            <label for="frameRate">معدل الإطارات:</label>
-            <select id="frameRate">
-                <option value="30">30 FPS</option>
-                <option value="60">60 FPS</option>
-                <option value="24">24 FPS</option>
-            </select>
         </div>
     </div>
 </div>
@@ -369,12 +352,8 @@ let audioAnalyser;
 let audioDataArray;
 let audioCheckInterval;
 
-let videoQuality = {
-    width: 1920,
-    height: 1080,
-    frameRate: 30
-};
-
+let videoQuality = 1080;
+let frameRate = 30;
 const videoSettingsBtn = document.getElementById('videoSettingsBtn');
 const videoSettingsModal = document.getElementById('videoSettingsModal');
 const videoQualitySelect = document.getElementById('videoQuality');
@@ -393,11 +372,7 @@ function updateStyles() {
 async function initCamera() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: videoQuality.width },
-                height: { ideal: videoQuality.height },
-                frameRate: { ideal: videoQuality.frameRate }
-            },
+            video: true,
             audio: true
         });
         
@@ -414,10 +389,9 @@ async function initCamera() {
         audioAnalyser.fftSize = 256;
         audioDataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
         
-        // إعداد MediaRecorder مع جودة عالية
+        // إعداد MediaRecorder مع تفعيل الصوت
         mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'video/webm;codecs=vp9,opus',
-            videoBitsPerSecond: 8000000 // 8 Mbps للجودة العالية
+            mimeType: 'video/webm;codecs=vp9,opus'
         });
 
         mediaRecorder.ondataavailable = (event) => {
@@ -426,7 +400,7 @@ async function initCamera() {
             }
         };
 
-        mediaRecorder.onstop = async () => {
+        mediaRecorder.onstop = () => {
             stopAudioCheck();
             const blob = new Blob(recordedChunks, {
                 type: 'video/webm'
@@ -439,41 +413,14 @@ async function initCamera() {
                 }
             });
 
-            try {
-                // إنشاء اسم الملف مع التاريخ والوقت
-                const now = new Date();
-                const fileName = `Teleprompter_${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2,'0')}-${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}-${now.getMinutes().toString().padStart(2,'0')}.webm`;
-
-                // استخدام File System Access API للحفظ في مجلد الفيديو
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: fileName,
-                    types: [{
-                        description: 'Video File',
-                        accept: {
-                            'video/webm': ['.webm']
-                        }
-                    }],
-                    excludeAcceptAllOption: true
-                });
-
-                const writable = await handle.createWritable();
-                await writable.write(blob);
-                await writable.close();
-
-                alert('تم حفظ الفيديو بنجاح!');
-            } catch (err) {
-                console.error('Error saving video:', err);
-                // احتياطي: إذا فشل الحفظ المباشر، نستخدم التحميل التقليدي
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                document.body.appendChild(a);
-                a.style.display = 'none';
-                a.href = url;
-                a.download = fileName;
-                a.click();
-                window.URL.revokeObjectURL(url);
-            }
-            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            document.body.appendChild(a);
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'recorded-video-with-audio.webm';
+            a.click();
+            window.URL.revokeObjectURL(url);
             recordedChunks = [];
         };
 
@@ -625,50 +572,85 @@ closeBtn.addEventListener('click', () => {
     settingsModal.style.display = 'none';
 });
 
+window.addEventListener('click', (event) => {
+    if (event.target == settingsModal) {
+        settingsModal.style.display = 'none';
+    }
+});
+
+// إضافة مستمعي الأحداث للإعدادات الجديدة
 videoSettingsBtn.addEventListener('click', () => {
     videoSettingsModal.style.display = 'block';
 });
 
-// إغلاق نافذة الإعدادات
+// إغلاق نافذة إعدادات الفيديو
 videoSettingsModal.querySelector('.close').addEventListener('click', () => {
     videoSettingsModal.style.display = 'none';
 });
 
 // تحديث إعدادات الفيديو
 videoQualitySelect.addEventListener('change', (e) => {
-    const quality = parseInt(e.target.value);
-    switch(quality) {
-        case 1080:
-            videoQuality.width = 1920;
-            videoQuality.height = 1080;
-            break;
-        case 720:
-            videoQuality.width = 1280;
-            videoQuality.height = 720;
-            break;
-        case 480:
-            videoQuality.width = 854;
-            videoQuality.height = 480;
-            break;
-    }
-    restartCamera();
+    videoQuality = parseInt(e.target.value);
+    updateVideoConstraints();
 });
 
 frameRateSelect.addEventListener('change', (e) => {
-    videoQuality.frameRate = parseInt(e.target.value);
-    restartCamera();
+    frameRate = parseInt(e.target.value);
+    updateVideoConstraints();
 });
 
-async function restartCamera() {
-    if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(track => track.stop());
+async function updateVideoConstraints() {
+    try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                width: { ideal: videoQuality },
+                height: { ideal: videoQuality * 9 / 16 },
+                frameRate: { ideal: frameRate }
+            },
+            audio: true
+        });
+        
+        videoElement.srcObject = newStream;
+        videoElement.muted = true;
+        
+        // تحديث MediaRecorder مع الإعدادات الجديدة
+        mediaRecorder = new MediaRecorder(newStream, {
+            mimeType: 'video/webm;codecs=vp9,opus'
+        });
+        
+        // إعادة تعيين معالجات الأحداث للMediaRecorder
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = () => {
+            stopAudioCheck();
+            const blob = new Blob(recordedChunks, {
+                type: 'video/webm'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            document.body.appendChild(a);
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'recorded-video-with-audio.webm';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            recordedChunks = [];
+        };
+        
+    } catch (error) {
+        console.error('Error updating video constraints:', error);
+        alert('حدث خطأ في تحديث إعدادات الفيديو');
     }
-    await initCamera();
 }
 
+// إغلاق النافذة عند النقر خارجها
 window.addEventListener('click', (event) => {
-    if (event.target == settingsModal) {
-        settingsModal.style.display = 'none';
+    if (event.target == videoSettingsModal) {
+        videoSettingsModal.style.display = 'none';
     }
 });
 
